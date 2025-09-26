@@ -13,7 +13,6 @@ import {
   type LucideIcon,
   Telescope,
 } from "lucide-react";
-import { Textarea } from "./components/ui/textarea";
 import { Input } from "./components/ui/input";
 
 /**
