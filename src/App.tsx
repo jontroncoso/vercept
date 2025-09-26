@@ -1,11 +1,8 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Plus,
   Globe,
-  Microscope,
   MoreHorizontal,
   Mic,
   Copy,
@@ -13,7 +10,11 @@ import {
   ThumbsDown,
   Volume2,
   RefreshCw,
+  type LucideIcon,
+  Telescope,
 } from "lucide-react";
+import { Textarea } from "./components/ui/textarea";
+import { Input } from "./components/ui/input";
 
 /**
  * Screenshot Replica – Single-file React/TypeScript component
@@ -27,7 +28,7 @@ import {
  *  - Bottom input with Add / Search / Deep research / More chips and a Dictate button
  */
 
-export default function ScreenshotReplica() {
+export default function App() {
   const actions = [
     { icon: Copy, label: "Copy" },
     { icon: ThumbsUp, label: "Like" },
@@ -37,60 +38,58 @@ export default function ScreenshotReplica() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900">
-      <div className="mx-auto max-w-3xl px-4 py-8 space-y-8">
+    <div className="h-screen w-screen text-foreground flex flex-col">
+      <div className="overflow-y-scroll flex-1 shrink-0 px-3 pt-2">
         {/* Image with question bubble */}
-        <div className="relative">
+        <div className="flex relative justify-end items-end">
           <img
-            src="/books-demo.png"
+            src="https://images.prismic.io/star-trek-untold/NDQzYTYyYWItMjY2Ny00MGY3LWEzMzItMDNkNjdhOWMyMzg2_chain_of_command_2.jpg?auto=compress,format&rect=0,0,700,526&w=700&h=526"
             alt="Stack of books"
-            className="w-full rounded-2xl border bg-zinc-50 object-cover"
+            className="rounded-2xl border object-contain max-h-96"
           />
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
-            <div className="rounded-full bg-zinc-100 text-zinc-700 px-5 py-3 shadow-sm border text-sm">
-              How many books are in this image?
+          <div className="absolute bottom-6 right-0">
+            <div className="rounded-full rounded-tr-none text-secondary-foreground bg-secondary px-5 py-3 shadow-primary/20 shadow-md text-sm">
+              How many lights are in this image?
             </div>
           </div>
         </div>
 
         {/* Assistant answer */}
         <div className="space-y-3">
-          <p className="text-lg">There are four books in this image.</p>
-          <div className="flex items-center gap-4 text-zinc-500">
-            {actions.map(({ icon: Icon, label }, i) => (
+          <p className="text-lg">There are four lights in this image.</p>
+          <div className="flex items-center gap-4 text-muted">
+            {actions.map(({ icon: Icon, label }) => (
               <button
                 key={label}
                 aria-label={label}
-                className="p-1 rounded-md hover:bg-zinc-100 transition"
+                className="p-1 rounded-full"
               >
-                <Icon className="h-5 w-5" />
+                <Icon className="h-4 w-4" />
               </button>
             ))}
           </div>
         </div>
 
         {/* Spacer to mimic open chat area */}
-        <div className="h-32" />
-
-        {/* Bottom composer */}
-        <div className="sticky bottom-4">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 rounded-2xl border bg-white shadow-sm px-3 py-2">
-              <div className="text-zinc-400 text-[15px] px-2 py-2">
-                Ask anything
-              </div>
-              <div className="flex items-center gap-2 px-1 pb-2">
-                <Chip icon={Plus}>Add</Chip>
-                <Chip icon={Globe}>Search</Chip>
-                <Chip icon={Microscope}>Deep research</Chip>
-                <Chip icon={MoreHorizontal}>More</Chip>
-              </div>
-            </div>
-            <Button size="icon" className="rounded-full h-12 w-12">
-              <Mic className="h-5 w-5" />
-            </Button>
+        <div className="h-98" />
+      </div>
+      {/* Bottom composer */}
+      <div className="flex items-center gap-3 px-3 py-2">
+        <div className="flex-1 rounded-2xl relative">
+          <Input
+            className="text-foreground rounded-2xl text-[15px] px-2 pt-4 pb-16 outline-none overflow-auto border-none resize-none shadow-zinc-500 shadow-sm"
+            placeholder="Ask anything..."
+          />
+          <div className="flex items-center gap-2 absolute bottom-2 left-3">
+            <Chip icon={Plus}></Chip>
+            <Chip icon={Globe}>Search</Chip>
+            <Chip icon={Telescope}>Deep research</Chip>
+            <Chip icon={MoreHorizontal}></Chip>
           </div>
         </div>
+        <Button size="icon" className="rounded-full h-12 w-12">
+          <Mic className="h-5 w-5" />
+        </Button>
       </div>
     </div>
   );
@@ -100,11 +99,11 @@ function Chip({
   icon: Icon,
   children,
 }: {
-  icon: any;
-  children: React.ReactNode;
+  icon: LucideIcon;
+  children?: React.ReactNode;
 }) {
   return (
-    <button className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50">
+    <button className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1">
       <Icon className="h-4 w-4" /> {children}
     </button>
   );
