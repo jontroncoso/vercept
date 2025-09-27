@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
+import { v4 as uid } from "uuid";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,8 +64,6 @@ type PerImageResult = {
 };
 
 // --------------------- Helper Utilities ----------------------
-
-const uid = () => Math.random().toString(36).slice(2);
 
 const bytes = (n: number) =>
   n < 1024
@@ -141,7 +140,7 @@ const Dropzone: React.FC<{
   onFiles: (files: File[]) => void;
   disabled?: boolean;
 }> = ({ onFiles, disabled }) => {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLButtonElement>(null);
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -171,7 +170,7 @@ const Dropzone: React.FC<{
   };
 
   return (
-    <div
+    <button
       ref={ref}
       onClick={onClick}
       onDrop={onDrop}
@@ -191,7 +190,7 @@ const Dropzone: React.FC<{
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 };
 

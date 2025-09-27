@@ -97,10 +97,10 @@ export default function App() {
 function Chip({
   icon: Icon,
   children,
-}: {
+}: Readonly<{
   icon: LucideIcon;
   children?: React.ReactNode;
-}) {
+}>) {
   return (
     <button className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1">
       <Icon className="h-4 w-4" /> {children}
