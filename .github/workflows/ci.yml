@@ -34,7 +34,5 @@ jobs:
             # - run: npx nx-cloud record -- echo Hello World
             # Build
             - run: npm ci
-            # When you enable task distribution, run the e2e-ci task instead of e2e
             - run: npm run lint
-
-              if: always()
+            - run: npx vitest run --coverage.enabled=true
