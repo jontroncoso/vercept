@@ -15,7 +15,13 @@ import {
 } from "lucide-react";
 import type OpenAI from "openai";
 import OpenAi from "openai";
-import { isMessage, useMessageStore, type InputMessage } from "./store/store";
+import {
+  extractTextFromMessage,
+  messageIsInput,
+  messageIsResponse,
+  useMessageStore,
+  type InputMessage,
+} from "./store/store";
 
 type ChatbotStatus = "uploading" | "thinking" | "drag-n-drop" | "idle";
 
@@ -23,10 +29,6 @@ const openai = new OpenAi({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
   dangerouslyAllowBrowser: true,
 });
-
-const dedupeArray = <T,>(f: T, i: number, fs: T[]): boolean => {
-  return fs.findIndex((t) => t === f) === i;
-};
 
 /**
  * Screenshot Replica – Single-file React/TypeScript component
@@ -42,7 +44,28 @@ const dedupeArray = <T,>(f: T, i: number, fs: T[]): boolean => {
 
 export default function App() {
   const [chatbotStatus, setChatbotStatus] = useState<ChatbotStatus>("idle");
+  const [showSlowWarning, setShowSlowWarning] = useState(false);
   const scrollDivRef = useRef<HTMLOutputElement>(null);
+  const [timeoutRef, setTimeoutRef] = useState<NodeJS.Timeout | null>(null);
+
+  const setStatus = useCallback(
+    (status: ChatbotStatus) => {
+      setShowSlowWarning(false);
+
+      if (timeoutRef) {
+        clearTimeout(timeoutRef);
+      }
+      if (status === "thinking") {
+        setTimeoutRef(
+          setTimeout(() => {
+            setShowSlowWarning(true);
+          }, 3000)
+        );
+      }
+      setChatbotStatus(status);
+    },
+    [setChatbotStatus, setTimeoutRef, timeoutRef]
+  );
 
   const scrollToBottom = useCallback(() => {
     if (scrollDivRef.current) {
@@ -54,16 +77,17 @@ export default function App() {
   }, [scrollDivRef]);
   return (
     <div className="h-screen w-screen text-foreground flex flex-col">
-      <ChatWindow chatbotStatus={chatbotStatus} scrollDivRef={scrollDivRef} />
-      <Dropzone setChatbotStatus={setChatbotStatus} scrollToBottom={scrollToBottom} chatbotStatus={chatbotStatus} />
+      <ChatWindow showSlowWarning={showSlowWarning} chatbotStatus={chatbotStatus} scrollDivRef={scrollDivRef} />
+      <Dropzone setStatus={setStatus} scrollToBottom={scrollToBottom} chatbotStatus={chatbotStatus} />
     </div>
   );
 }
 
-const ChatWindow: React.FC<{ chatbotStatus: ChatbotStatus; scrollDivRef: React.Ref<HTMLOutputElement> }> = ({
-  chatbotStatus,
-  scrollDivRef,
-}) => {
+const ChatWindow: React.FC<{
+  showSlowWarning: boolean;
+  chatbotStatus: ChatbotStatus;
+  scrollDivRef: React.Ref<HTMLOutputElement>;
+}> = ({ showSlowWarning, chatbotStatus, scrollDivRef }) => {
   const messages = useMessageStore((state) => state.messages);
   const actions = [
     { icon: Copy, label: "Copy" },
@@ -82,27 +106,22 @@ const ChatWindow: React.FC<{ chatbotStatus: ChatbotStatus; scrollDivRef: React.R
       {messages.map((message, index) => (
         <div
           key={index}
-          className={`flex flex-col relative justify-end ${isMessage(message) ? "items-end" : "items-start"} mb-4`}
+          className={`flex flex-col relative justify-end ${messageIsInput(message) ? "items-end" : "items-start"} mb-4`}
         >
-          {isMessage(message) &&
+          {messageIsInput(message) &&
             message.images.length > 0 &&
             message.images.map((img, i) => (
               <img key={i} src={img || ""} alt={`Uploaded image ${i + 1}`} className="rounded-lg max-w-xs" />
             ))}
           <div
-            className={`rounded-2xl text-secondary-foreground px-5 py-3 shadow-primary/50 shadow-md text-sm ${
-              isMessage(message) ? "bg-chart-1 text-white rounded-tr-none" : "bg-muted text-primary rounded-tl-none"
+            className={`rounded-2xl text-secondary-foreground px-5 py-3 shadow-primary/50 shadow-md text-sm mb-8 ${
+              messageIsInput(message)
+                ? "bg-chart-1 text-white rounded-tr-none"
+                : "bg-muted text-primary rounded-tl-none"
             }`}
           >
-            {!isMessage(message)
-              ? message instanceof Error
-                ? message.message
-                : message.output_text.split("\n").map((line, i) => <p key={i}>{line}</p>)
-              : message.content
-                  .map((c) => c.type === "input_text" && c.text)
-                  .filter(Boolean)
-                  .map((m, i) => <p key={i}>{m}</p>)}
-            {!isMessage(message) && (
+            {extractTextFromMessage(message)}
+            {messageIsResponse(message) && (
               <div className="flex items-center gap-4 text-muted -mb-12 pt-4">
                 {actions.map(({ icon: Icon, label }) => (
                   <button key={label} aria-label={label} className="p-1 rounded-full">
@@ -115,7 +134,16 @@ const ChatWindow: React.FC<{ chatbotStatus: ChatbotStatus; scrollDivRef: React.R
         </div>
       ))}
       {["thinking", "uploading"].includes(chatbotStatus) && (
-        <div className="flex flex-row items-center justify-between h-8 mt-16 relative w-1/3" id="thinking-indicator">
+        <div className=" relative w-1/3" id="thinking-indicator">
+          <p
+            className={`w-full text-sm transition-opacity text-primary ${
+              showSlowWarning ? "opacity-100" : "opacity-0"
+            } text-center text-muted mb-1`}
+          >
+            Please be patient, especially if analyzing images.
+            <br />
+            This is using o3 to save costs.
+          </p>
           <div style={{ left: "0" }} />
           <div style={{ animationDelay: "50ms", left: "5%" }} />
           <div style={{ animationDelay: "100ms", left: "10%" }} />
@@ -143,10 +171,10 @@ const ChatWindow: React.FC<{ chatbotStatus: ChatbotStatus; scrollDivRef: React.R
 };
 
 const Dropzone: React.FC<{
-  setChatbotStatus: React.Dispatch<React.SetStateAction<ChatbotStatus>>;
+  setStatus: (status: ChatbotStatus) => void;
   chatbotStatus: ChatbotStatus;
   scrollToBottom: () => void;
-}> = ({ setChatbotStatus, scrollToBottom, chatbotStatus }) => {
+}> = ({ setStatus, scrollToBottom, chatbotStatus }) => {
   const [files, setFiles] = useState<File[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const [text, setText] = useState("");
@@ -158,10 +186,10 @@ const Dropzone: React.FC<{
 
   const appendFiles = useCallback(
     (newFilesRaw: File[]) => {
-      const newFiles = [...files, ...newFilesRaw].filter(dedupeArray);
+      const newFiles = [...files, ...newFilesRaw];
       if (newFiles.length > 4) {
         newFiles.splice(0, newFiles.length - 4);
-        appendMessage(new Error("You can only upload up to 4 images at a time, for some reason."));
+        appendMessage({ error: "You can only upload up to 4 images at a time, for some reason." });
       }
       setFiles(newFiles);
     },
@@ -170,6 +198,7 @@ const Dropzone: React.FC<{
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
+      console.log("onDrop", e);
       e.preventDefault();
       if (chatbotStatus === "thinking") return;
       appendFiles(Array.from(e.dataTransfer.files));
@@ -193,7 +222,7 @@ const Dropzone: React.FC<{
   };
 
   const submitQuestion = async () => {
-    setChatbotStatus("thinking");
+    setStatus("thinking");
 
     const message: InputMessage = {
       role: "user",
@@ -240,16 +269,12 @@ const Dropzone: React.FC<{
         });
       }
     }
-    setChatbotStatus("idle");
+    setStatus("idle");
   };
 
   return (
     <menu ref={ref} className="flex items-center gap-3 px-3 py-2" onDrop={onDrop} onDragOver={onDragOver}>
-      <div
-        className="flex-1 flex-col rounded-2xl relative shadow-zinc-500 shadow-sm transition bg-popover border text-foreground focus-within:shadow-md focus-within:bg-accent"
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-      >
+      <div className="flex-1 flex-col rounded-2xl relative shadow-zinc-500 shadow-sm transition bg-popover border text-foreground focus-within:shadow-md focus-within:bg-accent">
         <div className="flex justify-end py-1.5 px-2 gap-2 min-h-10">
           <textarea
             className="text-secondary-foreground p-2 outline-none grow resize-none"
@@ -310,7 +335,7 @@ const Dropzone: React.FC<{
         size="icon"
         className="rounded-full h-12 w-12"
         onClick={() => {
-          setChatbotStatus(chatbotStatus === "idle" ? "thinking" : "idle");
+          setStatus(chatbotStatus === "idle" ? "thinking" : "idle");
           setTimeout(scrollToBottom, 100);
         }}
       >
