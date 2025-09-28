@@ -13,6 +13,16 @@ import {
   Telescope,
   X,
 } from "lucide-react";
+import type OpenAI from "openai";
+import OpenAi from "openai";
+import { isMessage, useMessageStore, type InputMessage } from "./store/store";
+
+type ChatbotStatus = "uploading" | "thinking" | "drag-n-drop" | "idle";
+
+const openai = new OpenAi({
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  dangerouslyAllowBrowser: true,
+});
 
 const dedupeArray = <T,>(f: T, i: number, fs: T[]): boolean => {
   return fs.findIndex((t) => t === f) === i;
@@ -31,32 +41,30 @@ const dedupeArray = <T,>(f: T, i: number, fs: T[]): boolean => {
  */
 
 export default function App() {
+  const [chatbotStatus, setChatbotStatus] = useState<ChatbotStatus>("idle");
+  const scrollDivRef = useRef<HTMLOutputElement>(null);
+
+  const scrollToBottom = useCallback(() => {
+    if (scrollDivRef.current) {
+      scrollDivRef.current.scrollTo({
+        top: scrollDivRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [scrollDivRef]);
   return (
     <div className="h-screen w-screen text-foreground flex flex-col">
-      <ChatWindow
-        discussion={[
-          {
-            role: "user",
-            content: "How many lights are in this image?",
-            images: [
-              "https://images.prismic.io/star-trek-untold/NDQzYTYyYWItMjY2Ny00MGY3LWEzMzItMDNkNjdhOWMyMzg2_chain_of_command_2.jpg?auto=compress,format&rect=0,0,700,526&w=700&h=526",
-            ],
-          },
-          { role: "assistant", content: "There are four lights in this image.", images: [] },
-        ]}
-      />
-      <Dropzone />
+      <ChatWindow chatbotStatus={chatbotStatus} scrollDivRef={scrollDivRef} />
+      <Dropzone setChatbotStatus={setChatbotStatus} scrollToBottom={scrollToBottom} chatbotStatus={chatbotStatus} />
     </div>
   );
 }
 
-type Message = {
-  role: "user" | "assistant";
-  content: string;
-  images: (string | File)[];
-};
-
-const ChatWindow: React.FC<{ discussion: Message[] }> = ({ discussion }) => {
+const ChatWindow: React.FC<{ chatbotStatus: ChatbotStatus; scrollDivRef: React.Ref<HTMLOutputElement> }> = ({
+  chatbotStatus,
+  scrollDivRef,
+}) => {
+  const messages = useMessageStore((state) => state.messages);
   const actions = [
     { icon: Copy, label: "Copy" },
     { icon: ThumbsUp, label: "Like" },
@@ -66,30 +74,35 @@ const ChatWindow: React.FC<{ discussion: Message[] }> = ({ discussion }) => {
   ];
 
   return (
-    <div className="overflow-y-scroll flex-1 shrink-0 px-3 pt-2">
-      {discussion.map((message, index) => (
+    <output
+      ref={scrollDivRef}
+      className="overflow-y-scroll flex-1 shrink-0 px-3 pt-2"
+      aria-label="Chatbot conversation"
+    >
+      {messages.map((message, index) => (
         <div
           key={index}
-          className={`flex relative items-end ${message.role === "user" ? "justify-end" : "justify-start"} mb-4`}
+          className={`flex flex-col relative justify-end ${isMessage(message) ? "items-end" : "items-start"} mb-4`}
         >
-          {message.images.length > 0 &&
+          {isMessage(message) &&
+            message.images.length > 0 &&
             message.images.map((img, i) => (
-              <img
-                key={i}
-                src={typeof img === "string" ? img : URL.createObjectURL(img)}
-                alt={`Uploaded image ${i + 1}`}
-                className="rounded-lg max-w-xs"
-              />
+              <img key={i} src={img || ""} alt={`Uploaded image ${i + 1}`} className="rounded-lg max-w-xs" />
             ))}
           <div
-            className={`absolute -bottom-3 rounded-full text-secondary-foreground px-5 py-3 shadow-primary/50 shadow-md text-sm ${
-              message.role === "user"
-                ? "bg-chart-1 text-white rounded-tr-none"
-                : "bg-muted text-primary rounded-tl-none"
+            className={`rounded-2xl text-secondary-foreground px-5 py-3 shadow-primary/50 shadow-md text-sm ${
+              isMessage(message) ? "bg-chart-1 text-white rounded-tr-none" : "bg-muted text-primary rounded-tl-none"
             }`}
           >
-            {message.content}
-            {message.role === "assistant" && (
+            {!isMessage(message)
+              ? message instanceof Error
+                ? message.message
+                : message.output_text.split("\n").map((line, i) => <p key={i}>{line}</p>)
+              : message.content
+                  .map((c) => c.type === "input_text" && c.text)
+                  .filter(Boolean)
+                  .map((m, i) => <p key={i}>{m}</p>)}
+            {!isMessage(message) && (
               <div className="flex items-center gap-4 text-muted -mb-12 pt-4">
                 {actions.map(({ icon: Icon, label }) => (
                   <button key={label} aria-label={label} className="p-1 rounded-full">
@@ -101,56 +114,137 @@ const ChatWindow: React.FC<{ discussion: Message[] }> = ({ discussion }) => {
           </div>
         </div>
       ))}
-    </div>
+      {["thinking", "uploading"].includes(chatbotStatus) && (
+        <div className="flex flex-row items-center justify-between h-8 mt-16 relative w-1/3" id="thinking-indicator">
+          <div style={{ left: "0" }} />
+          <div style={{ animationDelay: "50ms", left: "5%" }} />
+          <div style={{ animationDelay: "100ms", left: "10%" }} />
+          <div style={{ animationDelay: "150ms", left: "15%" }} />
+          <div style={{ animationDelay: "200ms", left: "20%" }} />
+          <div style={{ animationDelay: "250ms", left: "25%" }} />
+          <div style={{ animationDelay: "300ms", left: "30%" }} />
+          <div style={{ animationDelay: "350ms", left: "35%" }} />
+          <div style={{ animationDelay: "400ms", left: "40%" }} />
+          <div style={{ animationDelay: "450ms", left: "45%" }} />
+          <div style={{ animationDelay: "500ms", left: "50%" }} />
+          <div style={{ animationDelay: "550ms", left: "55%" }} />
+          <div style={{ animationDelay: "600ms", left: "60%" }} />
+          <div style={{ animationDelay: "650ms", left: "65%" }} />
+          <div style={{ animationDelay: "700ms", left: "70%" }} />
+          <div style={{ animationDelay: "750ms", left: "75%" }} />
+          <div style={{ animationDelay: "800ms", left: "80%" }} />
+          <div style={{ animationDelay: "850ms", left: "85%" }} />
+          <div style={{ animationDelay: "900ms", left: "90%" }} />
+          <div style={{ animationDelay: "950ms", left: "95%" }} />
+        </div>
+      )}
+    </output>
   );
 };
 
 const Dropzone: React.FC<{
-  disabled?: boolean;
-}> = ({ disabled }) => {
+  setChatbotStatus: React.Dispatch<React.SetStateAction<ChatbotStatus>>;
+  chatbotStatus: ChatbotStatus;
+  scrollToBottom: () => void;
+}> = ({ setChatbotStatus, scrollToBottom, chatbotStatus }) => {
   const [files, setFiles] = useState<File[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const [text, setText] = useState("");
+  const appendMessage = useMessageStore((state) => state.appendMessage);
+  const clearMessages = useMessageStore((state) => state.clearMessages);
+  useMessageStore.subscribe(async () => {
+    setTimeout(scrollToBottom, 100);
+  });
 
-  console.log({ files });
+  const appendFiles = useCallback(
+    (newFilesRaw: File[]) => {
+      const newFiles = [...files, ...newFilesRaw].filter(dedupeArray);
+      if (newFiles.length > 4) {
+        newFiles.splice(0, newFiles.length - 4);
+        appendMessage(new Error("You can only upload up to 4 images at a time, for some reason."));
+      }
+      setFiles(newFiles);
+    },
+    [appendMessage, files]
+  );
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      if (disabled) return;
-      setFiles((fs) =>
-        [...fs, ...Array.from(e.dataTransfer.files)].filter((f, i, fs) => {
-          return fs.findIndex((t) => t.name === f.name) === i;
-        })
-      );
+      if (chatbotStatus === "thinking") return;
+      appendFiles(Array.from(e.dataTransfer.files));
     },
-    [disabled]
+    [chatbotStatus, appendFiles]
   );
 
   const onClick = useCallback(() => {
-    if (disabled) return;
+    if (chatbotStatus === "thinking") return;
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
     input.multiple = true;
-    input.onchange = () => {
-      setFiles((fs) => [...fs, ...(input.files ? Array.from(input.files) : [])].filter(dedupeArray));
-    };
+    input.onchange = () => appendFiles(input.files ? Array.from(input.files) : []);
     input.click();
-  }, [setFiles, disabled]);
+  }, [chatbotStatus, appendFiles]);
 
   const onDragOver = (e: React.DragEvent) => {
-    if (disabled) return;
+    if (chatbotStatus === "thinking") return;
     e.preventDefault();
   };
 
   const submitQuestion = async () => {
-    // Submit the question along with attached files
+    setChatbotStatus("thinking");
+
+    const message: InputMessage = {
+      role: "user",
+      content: [{ type: "input_text", text }],
+      images: files.map((file) => URL.createObjectURL(file)),
+    };
+    appendMessage(message);
     setText("");
+
+    message.content.unshift(
+      ...(await Promise.all<OpenAI.Responses.ResponseInputImage>(
+        files.map(async (file) => {
+          const openAiFile = await openai.files.create({
+            file,
+            purpose: "user_data",
+          });
+          return {
+            type: "input_image",
+            file_id: openAiFile.id,
+            detail: "auto",
+          };
+        })
+      ))
+    );
+
+    // Submit the question along with attached files
+    setFiles([]);
+
+    // Call OpenAI API to get a response
+    try {
+      const response = await openai.responses.create({
+        model: "o3",
+        input: [{ role: message.role, content: message.content }],
+      });
+      console.log({ response });
+      appendMessage(response);
+    } catch (error: unknown) {
+      console.error("Error fetching response from OpenAI:", error);
+      if (error instanceof Error) {
+        appendMessage({
+          role: "user",
+          content: [{ type: "input_text", text: error.message || "Error occurred" }],
+          images: [],
+        });
+      }
+    }
+    setChatbotStatus("idle");
   };
 
   return (
-    <div ref={ref} id="dropzone" className="flex items-center gap-3 px-3 py-2" onDrop={onDrop} onDragOver={onDragOver}>
+    <menu ref={ref} className="flex items-center gap-3 px-3 py-2" onDrop={onDrop} onDragOver={onDragOver}>
       <div
         className="flex-1 flex-col rounded-2xl relative shadow-zinc-500 shadow-sm transition bg-popover border text-foreground focus-within:shadow-md focus-within:bg-accent"
         onDrop={onDrop}
@@ -169,6 +263,7 @@ const Dropzone: React.FC<{
             rows={1}
             onChange={(e) => setText(e.target.value)}
             value={text}
+            disabled={chatbotStatus === "thinking"}
           ></textarea>
 
           {files.map((file) => (
@@ -194,32 +289,33 @@ const Dropzone: React.FC<{
           >
             <Plus className="h-4 w-4" />
           </button>
-          <button
-            className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1"
-            onClick={onClick}
-          >
+          <button className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1">
             <Globe className="h-4 w-4" />
             Search
           </button>
 
-          <button
-            className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1"
-            onClick={onClick}
-          >
+          <button className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1">
             <Telescope className="h-4 w-4" />
             Deep research
           </button>
           <button
             className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1"
-            onClick={onClick}
+            onClick={() => clearMessages()}
           >
             <MoreHorizontal className="h-4 w-4" />
           </button>
         </div>
       </div>
-      <Button size="icon" className="rounded-full h-12 w-12">
+      <Button
+        size="icon"
+        className="rounded-full h-12 w-12"
+        onClick={() => {
+          setChatbotStatus(chatbotStatus === "idle" ? "thinking" : "idle");
+          setTimeout(scrollToBottom, 100);
+        }}
+      >
         <Mic className="h-5 w-5" />
       </Button>
-    </div>
+    </menu>
   );
 };

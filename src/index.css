@@ -3,6 +3,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@keyframes swing {
+  0% {
+    bottom: 0%;
+    opacity: 0[];
+  }
+  100% {
+    bottom: 100%;
+    opacity: 1;
+  }
+}
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -192,4 +203,17 @@ button:focus-visible {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+#thinking-indicator div {
+  /* @apply bg-primary h-4 w-4; */
+
+  background-color: #fff;
+  height: 1rem;
+  width: 1rem;
+  transition: top 0.5s ease-in-out;
+  animation: swing 0.75s infinite alternate ease-in-out;
+  position: absolute;
+  opacity: 0;
+  border-radius: 9999px;
 }
