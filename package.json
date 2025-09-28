@@ -4,11 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev:front": "vite",
-    "dev:back": "nodemon --exec ts-node server/index.ts",
+    "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run --coverage",
+    "deploy": "cd ./infra && terraform init && terraform validate && terraform apply -auto-approve"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",

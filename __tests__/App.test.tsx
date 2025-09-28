@@ -8,7 +8,7 @@ import { describe, it, expect, vi } from "vitest";
 import App from "../src/App";
 
 describe("App", () => {
-  it.skip("renders without crashing", async () => {
+  it("renders without crashing", async () => {
     const { container } = render(<App />);
 
     // Check for the presence of key elements
