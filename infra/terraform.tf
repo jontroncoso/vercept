@@ -42,6 +42,7 @@ resource "aws_cloudfront_origin_access_control" "chatbot_oac" {
   signing_protocol                  = "sigv4"
 }
 
+# ACM Certificate for the subdomain (chatbot.tronco.so)
 resource "aws_acm_certificate" "chatbot" {
   domain_name               = var.subdomain
   validation_method         = "DNS"
@@ -52,6 +53,7 @@ resource "aws_acm_certificate" "chatbot" {
   }
 }
 
+# DNS Validation Records
 resource "aws_route53_record" "chatbot_cert_validation" {
   for_each = {
     for dvo in aws_acm_certificate.chatbot.domain_validation_options : dvo.domain_name => {
@@ -68,6 +70,7 @@ resource "aws_route53_record" "chatbot_cert_validation" {
   ttl     = 60
 }
 
+# ACM Certificate Validation
 resource "aws_acm_certificate_validation" "chatbot" {
   certificate_arn         = aws_acm_certificate.chatbot.arn
   validation_record_fqdns = [for record in aws_route53_record.chatbot_cert_validation : record.fqdn]
@@ -88,6 +91,14 @@ resource "aws_cloudfront_distribution" "chatbot" {
     origin_access_control_id = aws_cloudfront_origin_access_control.chatbot_oac.id
     origin_path              = "/chatbot"
   }
+
+  custom_error_response {
+    error_code            = 403
+    response_page_path    = "/index.html"
+    response_code         = 200
+    error_caching_min_ttl = 300
+  }
+
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]
@@ -125,7 +136,7 @@ resource "aws_cloudfront_distribution" "chatbot" {
 
 }
 
-# (Optional) S3 Bucket Policy to allow CloudFront OAC access to /chatbot/*
+# S3 Bucket Policy to allow CloudFront OAC access to /chatbot/*
 data "aws_iam_policy_document" "chatbot_policy" {
   statement {
     actions = ["s3:GetObject"]
