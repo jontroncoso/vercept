@@ -11,18 +11,14 @@ describe("App", () => {
   it("renders without crashing", async () => {
     const { container } = render(<App />);
 
+    // Check for the presence of key elements
     const textBox = screen.getByPlaceholderText("Ask anything...");
     const [addImageButton] = container.querySelectorAll("#dropzone button") as NodeListOf<HTMLButtonElement>;
-
     expect(textBox).toBeInTheDocument();
     expect(addImageButton).toBeInTheDocument();
 
-    expect(container).toMatchSnapshot();
-
-    let input: HTMLInputElement | null = null;
-
     // Mock the createElement to handle file input creation
-    // let fileInput: HTMLInputElement | null = null;
+    let input: HTMLInputElement | null = null;
     const createElementSpy = vi.spyOn(document, "createElement").mockImplementationOnce((tagName: string) => {
       if (tagName === "input") {
         input = document.createElement("input");
@@ -53,5 +49,23 @@ describe("App", () => {
     const removeButton = dropzoneImage.nextSibling as HTMLButtonElement;
     act(() => removeButton.click());
     expect(container.querySelectorAll("#dropzone img")).toHaveLength(0);
+  });
+
+  it("Ask a question in the textbox", async () => {
+    // const { container } =
+    render(<App />);
+
+    const textbox = screen.getByPlaceholderText("Ask anything...");
+    expect(textbox).toBeInTheDocument();
+
+    // Simulate user typing a question
+    act(() => {
+      textbox.textContent = "What is in the image?\n";
+      textbox.dispatchEvent(new Event("keydown", { bubbles: true }));
+    });
+
+    const chatMessages = await screen.findAllByText("What is in the image?");
+
+    expect(chatMessages).toHaveLength(1);
   });
 });

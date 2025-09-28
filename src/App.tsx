@@ -31,6 +31,32 @@ const dedupeArray = <T,>(f: T, i: number, fs: T[]): boolean => {
  */
 
 export default function App() {
+  return (
+    <div className="h-screen w-screen text-foreground flex flex-col">
+      <ChatWindow
+        discussion={[
+          {
+            role: "user",
+            content: "How many lights are in this image?",
+            images: [
+              "https://images.prismic.io/star-trek-untold/NDQzYTYyYWItMjY2Ny00MGY3LWEzMzItMDNkNjdhOWMyMzg2_chain_of_command_2.jpg?auto=compress,format&rect=0,0,700,526&w=700&h=526",
+            ],
+          },
+          { role: "assistant", content: "There are four lights in this image.", images: [] },
+        ]}
+      />
+      <Dropzone />
+    </div>
+  );
+}
+
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+  images: (string | File)[];
+};
+
+const ChatWindow: React.FC<{ discussion: Message[] }> = ({ discussion }) => {
   const actions = [
     { icon: Copy, label: "Copy" },
     { icon: ThumbsUp, label: "Like" },
@@ -40,52 +66,51 @@ export default function App() {
   ];
 
   return (
-    <div className="h-screen w-screen text-foreground flex flex-col">
-      <div className="overflow-y-scroll flex-1 shrink-0 px-3 pt-2">
-        {/* Image with question bubble */}
-        <div className="flex relative justify-end items-end">
-          <img
-            src="https://images.prismic.io/star-trek-untold/NDQzYTYyYWItMjY2Ny00MGY3LWEzMzItMDNkNjdhOWMyMzg2_chain_of_command_2.jpg?auto=compress,format&rect=0,0,700,526&w=700&h=526"
-            alt="Stack of books"
-            className="rounded-2xl border object-contain max-h-96"
-          />
-          <div className="absolute bottom-6 right-0">
-            <div className="rounded-full rounded-tr-none text-secondary-foreground bg-secondary px-5 py-3 shadow-primary/20 shadow-md text-sm">
-              How many lights are in this image?
-            </div>
-          </div>
-        </div>
-
-        {/* Assistant answer */}
-        <div className="space-y-3">
-          <p className="text-lg">There are four lights in this image.</p>
-          <div className="flex items-center gap-4 text-muted">
-            {actions.map(({ icon: Icon, label }) => (
-              <button
-                key={label}
-                aria-label={label}
-                className="p-1 rounded-full"
-              >
-                <Icon className="h-4 w-4" />
-              </button>
+    <div className="overflow-y-scroll flex-1 shrink-0 px-3 pt-2">
+      {discussion.map((message, index) => (
+        <div
+          key={index}
+          className={`flex relative items-end ${message.role === "user" ? "justify-end" : "justify-start"} mb-4`}
+        >
+          {message.images.length > 0 &&
+            message.images.map((img, i) => (
+              <img
+                key={i}
+                src={typeof img === "string" ? img : URL.createObjectURL(img)}
+                alt={`Uploaded image ${i + 1}`}
+                className="rounded-lg max-w-xs"
+              />
             ))}
+          <div
+            className={`absolute -bottom-3 rounded-full text-secondary-foreground px-5 py-3 shadow-primary/50 shadow-md text-sm ${
+              message.role === "user"
+                ? "bg-chart-1 text-white rounded-tr-none"
+                : "bg-muted text-primary rounded-tl-none"
+            }`}
+          >
+            {message.content}
+            {message.role === "assistant" && (
+              <div className="flex items-center gap-4 text-muted -mb-12 pt-4">
+                {actions.map(({ icon: Icon, label }) => (
+                  <button key={label} aria-label={label} className="p-1 rounded-full">
+                    <Icon className="h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Spacer to mimic open chat area */}
-        <div className="h-98" />
-      </div>
-      {/* Bottom composer */}
-      <Dropzone />
+      ))}
     </div>
   );
-}
+};
 
 const Dropzone: React.FC<{
   disabled?: boolean;
 }> = ({ disabled }) => {
   const [files, setFiles] = useState<File[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+  const [text, setText] = useState("");
 
   console.log({ files });
 
@@ -109,11 +134,7 @@ const Dropzone: React.FC<{
     input.accept = "image/*";
     input.multiple = true;
     input.onchange = () => {
-      setFiles((fs) =>
-        [...fs, ...(input.files ? Array.from(input.files) : [])].filter(
-          dedupeArray
-        )
-      );
+      setFiles((fs) => [...fs, ...(input.files ? Array.from(input.files) : [])].filter(dedupeArray));
     };
     input.click();
   }, [setFiles, disabled]);
@@ -123,14 +144,13 @@ const Dropzone: React.FC<{
     e.preventDefault();
   };
 
+  const submitQuestion = async () => {
+    // Submit the question along with attached files
+    setText("");
+  };
+
   return (
-    <div
-      ref={ref}
-      id="dropzone"
-      className="flex items-center gap-3 px-3 py-2"
-      onDrop={onDrop}
-      onDragOver={onDragOver}
-    >
+    <div ref={ref} id="dropzone" className="flex items-center gap-3 px-3 py-2" onDrop={onDrop} onDragOver={onDragOver}>
       <div
         className="flex-1 flex-col rounded-2xl relative shadow-zinc-500 shadow-sm transition bg-popover border text-foreground focus-within:shadow-md focus-within:bg-accent"
         onDrop={onDrop}
@@ -140,7 +160,15 @@ const Dropzone: React.FC<{
           <textarea
             className="text-secondary-foreground p-2 outline-none grow resize-none"
             placeholder="Ask anything..."
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submitQuestion();
+              }
+            }}
             rows={1}
+            onChange={(e) => setText(e.target.value)}
+            value={text}
           ></textarea>
 
           {files.map((file) => (
@@ -152,9 +180,7 @@ const Dropzone: React.FC<{
               />
               <button
                 className="absolute -top-3 -right-3 bg-red cursor-pointer rounded-full p-1 m-1"
-                onClick={() =>
-                  setFiles((fs) => fs.filter((f) => f.name !== file.name))
-                }
+                onClick={() => setFiles((fs) => fs.filter((f) => f.name !== file.name))}
               >
                 <X className="h-3 w-3" />
               </button>
