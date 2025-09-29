@@ -76,7 +76,7 @@ export default function App() {
     }
   }, [scrollDivRef]);
   return (
-    <div className="h-screen w-screen text-foreground flex flex-col">
+    <div className="h-dvh w-screen text-foreground flex flex-col">
       <ChatWindow showSlowWarning={showSlowWarning} chatbotStatus={chatbotStatus} scrollDivRef={scrollDivRef} />
       <Dropzone setStatus={setStatus} scrollToBottom={scrollToBottom} chatbotStatus={chatbotStatus} />
     </div>
@@ -307,12 +307,12 @@ const Dropzone: React.FC<{
           </button>
           <button className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1">
             <Globe className="h-4 w-4" />
-            Search
+            <span className="sm:inline hidden">Search</span>
           </button>
 
           <button className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1">
             <Telescope className="h-4 w-4" />
-            Deep research
+            <span className="sm:inline hidden">Deep research</span>
           </button>
           <button
             className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1"
