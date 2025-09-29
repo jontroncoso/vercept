@@ -198,7 +198,6 @@ const Dropzone: React.FC<{
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
-      console.log("onDrop", e);
       e.preventDefault();
       if (chatbotStatus === "thinking") return;
       appendFiles(Array.from(e.dataTransfer.files));
@@ -222,8 +221,8 @@ const Dropzone: React.FC<{
   };
 
   const submitQuestion = async () => {
+    // Move images in UI first.
     setStatus("thinking");
-
     const message: InputMessage = {
       role: "user",
       content: [{ type: "input_text", text }],
@@ -232,7 +231,8 @@ const Dropzone: React.FC<{
     appendMessage(message);
     setText("");
 
-    message.content.unshift(
+    // Upload images to OpenAI.
+    message.content.push(
       ...(await Promise.all<OpenAI.Responses.ResponseInputImage>(
         files.map(async (file) => {
           const openAiFile = await openai.files.create({
@@ -247,27 +247,18 @@ const Dropzone: React.FC<{
         })
       ))
     );
-
-    // Submit the question along with attached files
     setFiles([]);
 
-    // Call OpenAI API to get a response
+    // Call OpenAI API with images (if attached) to get a response
     try {
       const response = await openai.responses.create({
         model: "o3",
         input: [{ role: message.role, content: message.content }],
       });
-      console.log({ response });
       appendMessage(response);
     } catch (error: unknown) {
       console.error("Error fetching response from OpenAI:", error);
-      if (error instanceof Error) {
-        appendMessage({
-          role: "user",
-          content: [{ type: "input_text", text: error.message || "Error occurred" }],
-          images: [],
-        });
-      }
+      appendMessage({ error: `OpenAI Error! ${(error as Error).message || ""}` });
     }
     setStatus("idle");
   };
