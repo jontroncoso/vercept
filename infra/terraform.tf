@@ -128,6 +128,22 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
   auto_deploy = true
+
+  access_log_settings {
+    destination_arn = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/apigateway/chat-http-api"
+    format = jsonencode({
+      requestId      = "$context.requestId",
+      ip             = "$context.identity.sourceIp",
+      caller         = "$context.identity.caller",
+      user           = "$context.identity.user",
+      requestTime    = "$context.requestTime",
+      httpMethod     = "$context.httpMethod",
+      resourcePath   = "$context.resourcePath",
+      status         = "$context.status",
+      protocol       = "$context.protocol",
+      responseLength = "$context.responseLength"
+    })
+  }
 }
 
 resource "aws_lambda_permission" "apigw_to_chat" {
@@ -247,8 +263,7 @@ resource "aws_cloudfront_distribution" "dist" {
   comment             = "Default -> S3 (${var.folder}/index.html), /api/* -> API Gateway (Lambda 'chat')"
   default_root_object = "index.html"
   price_class         = "PriceClass_100"
-
-  aliases = [var.subdomain]
+  aliases             = [var.subdomain]
 
   # --- Origins ---
 
@@ -317,6 +332,12 @@ resource "aws_cloudfront_distribution" "dist" {
     acm_certificate_arn      = aws_acm_certificate_validation.cf_cert_validation.certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
+  }
+
+  logging_config {
+    include_cookies = false
+    bucket          = "troncoso-cloudfront-logs.s3.amazonaws.com" # Change to your logging bucket
+    prefix          = "cloudfront/"
   }
 
   depends_on = [

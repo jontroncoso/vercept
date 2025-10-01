@@ -245,24 +245,6 @@ const Dropzone: React.FC<{
     <menu ref={ref} className="flex items-center gap-3 px-3 py-2" onDrop={onDrop} onDragOver={onDragOver}>
       <div className="flex-1 flex-col rounded-2xl relative shadow-zinc-500 shadow-sm transition bg-popover border text-foreground focus-within:shadow-md focus-within:bg-accent">
         <div className="flex justify-end py-1.5 px-2 gap-2 min-h-10">
-          <div
-            className={`absolute inset-0 rounded-2xl flex flex-col items-center justify-center text-center p-4 z-20 pointer-events-none transition-opacity bg-accent ${
-              chatbotStatus === "drag-n-drop" ? "opacity-100 z-10" : "opacity-0 z-0"
-            }`}
-            id="dropzone"
-          >
-            Drop Files Here!
-            <div />
-            <div />
-            <div />
-            <div />
-            <div />
-            <div />
-            <div />
-            <div />
-            <div />
-            <div />
-          </div>
           <Textarea submitRequest={submitRequest} />
           {files.map((file) => (
             <div key={file.name} className="relative  z-30">
