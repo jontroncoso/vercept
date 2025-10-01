@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 export type ErrorMessage = { error: string };
 export type MessageType = OpenAI.Responses.ResponseInputItem.Message | OpenAI.Responses.Response | ErrorMessage;
-type ChatbotStatus = "uploading" | "thinking" | "thinking-slowly" | "drag-n-drop" | "idle";
+type ChatbotStatus = "thinking" | "drag-n-drop" | "idle";
 
 let timeoutRef: NodeJS.Timeout | null = null;
 
