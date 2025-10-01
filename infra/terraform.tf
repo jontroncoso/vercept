@@ -124,6 +124,11 @@ resource "aws_apigatewayv2_route" "api_chat" {
   target    = "integrations/${aws_apigatewayv2_integration.chat.id}"
 }
 
+resource "aws_cloudwatch_log_group" "apigw_logs" {
+  name              = "/aws/apigateway/chat-http-api"
+  retention_in_days = 14
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
@@ -260,7 +265,7 @@ locals {
 
 resource "aws_cloudfront_distribution" "dist" {
   enabled             = true
-  comment             = "Default -> S3 (${var.folder}/index.html), /api/* -> API Gateway (Lambda 'chat')"
+  comment             = "Vercept Chatbot Distribution"
   default_root_object = "index.html"
   price_class         = "PriceClass_100"
   aliases             = [var.subdomain]

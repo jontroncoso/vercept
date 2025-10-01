@@ -224,8 +224,6 @@ button:focus-visible {
 }
 
 #thinking-indicator div {
-  /* @apply bg-primary h-4 w-4; */
-
   background-color: var(--color-primary);
   height: 1rem;
   width: 1rem;
@@ -247,22 +245,10 @@ button:focus-visible {
   background-color: var(--color-foreground);
 }
 
-/* Base styles for the divs */
-/* #dropzone {
-  position: absolute;
-  width: 50px;
-  height: 50px;
-  background-color: #4a90e2;
-  border-radius: 8px;
-  animation-timing-function: cubic-bezier(0.68, -0.55, 0.27, 1.55);
-  animation: suck-in 2s infinite;
-  opacity: 1;
-} */
+/* Blackhole effect */
 #dropzone {
   cursor: progress;
 }
-
-/* Specific positions for each div */
 #dropzone > div {
   position: absolute;
   --left-start: 0%;

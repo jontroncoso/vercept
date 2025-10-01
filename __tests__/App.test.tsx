@@ -130,7 +130,7 @@ describe("App", () => {
     await vi.waitFor(() => container.querySelectorAll("output > div").length > 0);
 
     await vi.waitFor(() => container.querySelectorAll("output img"));
-    const outputImage = await screen.findAllByRole("img", { name: /Chatted image/i });
+    const outputImage = await screen.findAllByRole("img", { name: /Chatted/i });
     expect(chatbotOutput).toContain(outputImage[0]);
   });
 

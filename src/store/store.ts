@@ -19,7 +19,7 @@ interface MessageStore {
 }
 
 export const dedupeFilter = <T>(f: T, i: number, fs: T[]): boolean => {
-  return fs.findIndex((t) => t === f) === i;
+  return fs.indexOf(f) === i;
 };
 export const useMessageStore = create<MessageStore>()(
   persist(

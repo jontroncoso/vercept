@@ -85,7 +85,7 @@ const ChatWindow: React.FC<{
           >
             {images.length > 0 &&
               images.map((img, i) => (
-                <img key={i} src={img || ""} alt={`Chatted image ${i + 1}`} className="rounded-lg max-w-xs" />
+                <img key={img} src={img} alt={`Chatted ${i + 1}`} className="rounded-lg max-w-xs" />
               ))}
             <div
               className={`rounded-2xl text-secondary-foreground px-5 py-3 shadow-primary/50 shadow-md text-sm mb-8 ${
@@ -241,6 +241,8 @@ const Dropzone: React.FC<{
     setFiles([]);
   };
 
+  const removeFile = (file: Partial<File>) => setFiles((fs) => fs.filter((f) => f.name !== file.name));
+
   return (
     <menu ref={ref} className="flex items-center gap-3 px-3 py-2" onDrop={onDrop} onDragOver={onDragOver}>
       <div className="flex-1 flex-col rounded-2xl relative shadow-zinc-500 shadow-sm transition bg-popover border text-foreground focus-within:shadow-md focus-within:bg-accent">
@@ -251,7 +253,7 @@ const Dropzone: React.FC<{
               <img src={file.url} alt={file.name} className="rounded-sm border object-contain max-h-16" />
               <button
                 className="absolute -top-3 -right-3 bg-red cursor-pointer rounded-full p-1 m-1"
-                onClick={() => setFiles((fs) => fs.filter((f) => f.name !== file.name))}
+                onClick={() => removeFile(file)}
               >
                 <X className="h-3 w-3" />
               </button>

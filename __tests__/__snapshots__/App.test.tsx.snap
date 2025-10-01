@@ -170,7 +170,7 @@ exports[`App > Ask a question with images 1`] = `
     class="flex flex-col relative justify-end items-end mb-4"
   >
     <img
-      alt="Chatted image 1"
+      alt="Chatted 1"
       class="rounded-lg max-w-xs"
       src="https://chatbot.tronco.so/upload/test-image.png"
     />
