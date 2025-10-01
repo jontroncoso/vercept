@@ -69,6 +69,28 @@ resource "aws_iam_role_policy_attachment" "lambda_logging" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_policy" "lambda_s3_put" {
+  name        = "chat-lambda-s3-put-policy"
+  description = "Allow Lambda to put objects in the site bucket"
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:PutObject"
+        ],
+        Resource = "${data.aws_s3_bucket.site.arn}/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_s3_put" {
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = aws_iam_policy.lambda_s3_put.arn
+}
+
 # Lambda Function for /infra/openai.ts
 data "archive_file" "vercept_lambda" {
   type        = "zip"
@@ -89,9 +111,34 @@ resource "aws_lambda_function" "vercept_chat" {
 
   environment {
     variables = {
-      OPENAI_API_KEY = var.openai_api_key
-      NODE_ENV       = "production"
-      LOG_LEVEL      = "info"
+      VITE_OPENAI_API_KEY = var.openai_api_key
+      NODE_ENV            = "production"
+      LOG_LEVEL           = "info"
+    }
+  }
+
+
+  tags = {
+    Environment = "production"
+    Application = "Vercept"
+  }
+}
+
+resource "aws_lambda_function" "vercept_upload" {
+  filename         = data.archive_file.vercept_lambda.output_path
+  function_name    = "vercept_upload"
+  role             = aws_iam_role.lambda_exec.arn
+  handler          = "dist/upload.upload"
+  source_code_hash = data.archive_file.vercept_lambda.output_base64sha256
+
+  runtime = "nodejs20.x"
+  timeout = 120
+
+  environment {
+    variables = {
+      VITE_BUCKET_NAME = var.bucket_name
+      NODE_ENV         = "production"
+      LOG_LEVEL        = "info"
     }
   }
 
@@ -124,6 +171,19 @@ resource "aws_apigatewayv2_route" "api_chat" {
   target    = "integrations/${aws_apigatewayv2_integration.chat.id}"
 }
 
+resource "aws_apigatewayv2_integration" "upload" {
+  api_id                 = aws_apigatewayv2_api.http_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.vercept_upload.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "api_upload" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "ANY /api/upload"
+  target    = "integrations/${aws_apigatewayv2_integration.upload.id}"
+}
+
 resource "aws_cloudwatch_log_group" "apigw_logs" {
   name              = "/aws/apigateway/chat-http-api"
   retention_in_days = 14
@@ -152,9 +212,17 @@ resource "aws_apigatewayv2_stage" "default" {
 }
 
 resource "aws_lambda_permission" "apigw_to_chat" {
-  statement_id  = "AllowAPIGatewayInvokeHello"
+  statement_id  = "AllowAPIGatewayInvokeChat"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.vercept_chat.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "apigw_to_upload" {
+  statement_id  = "AllowAPIGatewayInvokeUpload"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.vercept_upload.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
@@ -341,7 +409,7 @@ resource "aws_cloudfront_distribution" "dist" {
 
   logging_config {
     include_cookies = false
-    bucket          = "troncoso-cloudfront-logs.s3.amazonaws.com" # Change to your logging bucket
+    bucket          = "troncoso-logs.s3.amazonaws.com" # Change to your logging bucket
     prefix          = "cloudfront/"
   }
 

@@ -222,6 +222,11 @@ const Dropzone: React.FC<{
     setChatbotStatus("drag-n-drop");
   };
 
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setChatbotStatus("idle");
+  };
+
   // Submit request to OpenAI
   const submitRequest = async (text: string) => {
     // Move images in UI first.
@@ -244,8 +249,32 @@ const Dropzone: React.FC<{
   const removeFile = (file: Partial<File>) => setFiles((fs) => fs.filter((f) => f.name !== file.name));
 
   return (
-    <menu ref={ref} className="flex items-center gap-3 px-3 py-2" onDrop={onDrop} onDragOver={onDragOver}>
+    <menu
+      ref={ref}
+      className="flex items-center gap-3 px-3 py-2"
+      onDrop={onDrop}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+    >
       <div className="flex-1 flex-col rounded-2xl relative shadow-zinc-500 shadow-sm transition bg-popover border text-foreground focus-within:shadow-md focus-within:bg-accent">
+        <div
+          className={`absolute inset-0 rounded-2xl flex flex-col items-center justify-center text-center p-4 z-20 pointer-events-none transition-opacity bg-accent ${
+            chatbotStatus === "drag-n-drop" ? "opacity-100 z-10" : "opacity-0 z-0"
+          }`}
+          id="dropzone"
+        >
+          Drop Files Here!
+          <div />
+          <div />
+          <div />
+          <div />
+          <div />
+          <div />
+          <div />
+          <div />
+          <div />
+          <div />
+        </div>
         <div className="flex justify-end py-1.5 px-2 gap-2 min-h-10">
           <Textarea submitRequest={submitRequest} />
           {files.map((file) => (
