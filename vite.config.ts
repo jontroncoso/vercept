@@ -13,6 +13,16 @@ export default defineConfig({
     }),
     tailwindcss(),
   ],
+  server: {
+    port: 5173,
+    proxy: {
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+    },
+  },
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -22,5 +32,6 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./__tests__/vitest.setup.js"], // Path to your setup file
+    deps: { inline: ["@atlaskit/pragmatic-drag-and-drop"] },
   },
 });

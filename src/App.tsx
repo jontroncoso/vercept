@@ -14,61 +14,28 @@ import {
   X,
 } from "lucide-react";
 import type OpenAI from "openai";
-import OpenAi from "openai";
 import {
+  dedupeFilter,
   extractTextFromMessage,
   messageIsInput,
   messageIsResponse,
   useMessageStore,
-  type InputMessage,
 } from "./store/store";
 
-type ChatbotStatus = "uploading" | "thinking" | "drag-n-drop" | "idle";
+type ImageType = OpenAI.Responses.ResponseInputImage & { image_url: string };
 
-const openai = new OpenAi({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+const extractImagesFromMessage = (message: OpenAI.Responses.ResponseInputItem.Message): string[] =>
+  message.content
+    .filter((c): c is ImageType => c.type === "input_image" && Boolean(c.image_url))
+    .map((c) => c.image_url);
 
-/**
- * Screenshot Replica – Single-file React/TypeScript component
- * Tailwind + shadcn/ui
- *
- * This is a mostly-static UI that mirrors the provided mock:
- *  - Large product image
- *  - User question bubble floating over the image
- *  - Assistant answer text
- *  - 5-icon actions toolbar under the answer
- *  - Bottom input with Add / Search / Deep research / More chips and a Dictate button
- */
-
+// Main App component
 export default function App() {
-  const [chatbotStatus, setChatbotStatus] = useState<ChatbotStatus>("idle");
-  const [showSlowWarning, setShowSlowWarning] = useState(false);
+  const showSlowWarning = useMessageStore((state) => state.showSlowWarning);
   const scrollDivRef = useRef<HTMLOutputElement>(null);
-  const [timeoutRef, setTimeoutRef] = useState<NodeJS.Timeout | null>(null);
-
-  const setStatus = useCallback(
-    (status: ChatbotStatus) => {
-      setShowSlowWarning(false);
-
-      if (timeoutRef) {
-        clearTimeout(timeoutRef);
-      }
-      if (status === "thinking") {
-        setTimeoutRef(
-          setTimeout(() => {
-            setShowSlowWarning(true);
-          }, 3000)
-        );
-      }
-      setChatbotStatus(status);
-    },
-    [setChatbotStatus, setTimeoutRef, timeoutRef]
-  );
 
   const scrollToBottom = useCallback(() => {
-    if (scrollDivRef.current) {
+    if (scrollDivRef.current?.scrollTo) {
       scrollDivRef.current.scrollTo({
         top: scrollDivRef.current.scrollHeight,
         behavior: "smooth",
@@ -77,18 +44,22 @@ export default function App() {
   }, [scrollDivRef]);
   return (
     <div className="h-dvh w-screen text-foreground flex flex-col">
-      <ChatWindow showSlowWarning={showSlowWarning} chatbotStatus={chatbotStatus} scrollDivRef={scrollDivRef} />
-      <Dropzone setStatus={setStatus} scrollToBottom={scrollToBottom} chatbotStatus={chatbotStatus} />
+      <ChatWindow showSlowWarning={showSlowWarning} scrollDivRef={scrollDivRef} />
+      <Dropzone scrollToBottom={scrollToBottom} />
     </div>
   );
 }
 
+/**
+ * Chat window that shows the conversation
+ */
 const ChatWindow: React.FC<{
   showSlowWarning: boolean;
-  chatbotStatus: ChatbotStatus;
   scrollDivRef: React.Ref<HTMLOutputElement>;
-}> = ({ showSlowWarning, chatbotStatus, scrollDivRef }) => {
+}> = ({ showSlowWarning, scrollDivRef }) => {
   const messages = useMessageStore((state) => state.messages);
+  const chatbotStatus = useMessageStore((state) => state.chatbotStatus);
+
   const actions = [
     { icon: Copy, label: "Copy" },
     { icon: ThumbsUp, label: "Like" },
@@ -103,36 +74,40 @@ const ChatWindow: React.FC<{
       className="overflow-y-scroll flex-1 shrink-0 px-3 pt-2"
       aria-label="Chatbot conversation"
     >
-      {messages.map((message, index) => (
-        <div
-          key={index}
-          className={`flex flex-col relative justify-end ${messageIsInput(message) ? "items-end" : "items-start"} mb-4`}
-        >
-          {messageIsInput(message) &&
-            message.images.length > 0 &&
-            message.images.map((img, i) => (
-              <img key={i} src={img || ""} alt={`Uploaded image ${i + 1}`} className="rounded-lg max-w-xs" />
-            ))}
+      {messages.map((message, index) => {
+        const images = messageIsInput(message) ? extractImagesFromMessage(message) : [];
+        return (
           <div
-            className={`rounded-2xl text-secondary-foreground px-5 py-3 shadow-primary/50 shadow-md text-sm mb-8 ${
-              messageIsInput(message)
-                ? "bg-chart-1 text-white rounded-tr-none"
-                : "bg-muted text-primary rounded-tl-none"
-            }`}
+            key={index}
+            className={`flex flex-col relative justify-end ${
+              messageIsInput(message) ? "items-end" : "items-start"
+            } mb-4`}
           >
-            {extractTextFromMessage(message)}
-            {messageIsResponse(message) && (
-              <div className="flex items-center gap-4 text-muted -mb-12 pt-4">
-                {actions.map(({ icon: Icon, label }) => (
-                  <button key={label} aria-label={label} className="p-1 rounded-full">
-                    <Icon className="h-4 w-4" />
-                  </button>
-                ))}
-              </div>
-            )}
+            {images.length > 0 &&
+              images.map((img, i) => (
+                <img key={i} src={img || ""} alt={`Chatted image ${i + 1}`} className="rounded-lg max-w-xs" />
+              ))}
+            <div
+              className={`rounded-2xl text-secondary-foreground px-5 py-3 shadow-primary/50 shadow-md text-sm mb-8 ${
+                messageIsInput(message)
+                  ? "bg-chart-1 text-white rounded-tr-none"
+                  : "bg-muted text-primary rounded-tl-none"
+              }`}
+            >
+              {extractTextFromMessage(message)}
+              {messageIsResponse(message) && (
+                <div className="flex items-center gap-4 text-muted -mb-12 pt-4">
+                  {actions.map(({ icon: Icon, label }) => (
+                    <button key={label} aria-label={label} className="p-1 rounded-full">
+                      <Icon className="h-4 w-4" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
       {["thinking", "uploading"].includes(chatbotStatus) && (
         <div className=" relative w-1/3" id="thinking-indicator">
           <p
@@ -170,41 +145,65 @@ const ChatWindow: React.FC<{
   );
 };
 
+/**
+ * Dropzone component for file uploads and text input
+ */
 const Dropzone: React.FC<{
-  setStatus: (status: ChatbotStatus) => void;
-  chatbotStatus: ChatbotStatus;
   scrollToBottom: () => void;
-}> = ({ setStatus, scrollToBottom, chatbotStatus }) => {
-  const [files, setFiles] = useState<File[]>([]);
+}> = ({ scrollToBottom }) => {
+  const [files, setFiles] = useState<{ type: string; name: string; url: string }[]>([]);
   const ref = useRef<HTMLDivElement>(null);
-  const [text, setText] = useState("");
   const appendMessage = useMessageStore((state) => state.appendMessage);
   const clearMessages = useMessageStore((state) => state.clearMessages);
-  useMessageStore.subscribe(async () => {
-    setTimeout(scrollToBottom, 100);
-  });
+  const setChatbotStatus = useMessageStore((state) => state.setChatbotStatus);
+  const chatbotStatus = useMessageStore((state) => state.chatbotStatus);
 
+  // Subscribe to message store changes to auto-scroll to bottom
+  useMessageStore.subscribe(async () => setTimeout(scrollToBottom, 100));
+
+  // Append files, limiting to 4
   const appendFiles = useCallback(
-    (newFilesRaw: File[]) => {
-      const newFiles = [...files, ...newFilesRaw];
+    async (rawFiles: File[]) => {
+      const response = await fetch(`/api/upload`, {
+        method: "POST",
+        body: JSON.stringify({ files: rawFiles.map((f) => ({ name: f.name, type: f.type })) }),
+        headers: { "Content-Type": "application/json" },
+      });
+      const { presignedUrls } = (await response.json()) as { presignedUrls: string[] };
+      const processedFiles = await Promise.all(
+        rawFiles.map(async (f, i) => {
+          await fetch(presignedUrls[i], {
+            method: "PUT",
+            headers: { "Content-Type": f.type },
+            body: f,
+          });
+          return { type: f.type, name: f.name, url: `${import.meta.env.VITE_API_URL}/upload/${f.name}` };
+        })
+      );
+      const newFiles = [...files, ...processedFiles].filter(dedupeFilter);
+
       if (newFiles.length > 4) {
         newFiles.splice(0, newFiles.length - 4);
         appendMessage({ error: "You can only upload up to 4 images at a time, for some reason." });
       }
-      setFiles(newFiles);
+
+      setTimeout(() => setFiles(newFiles), 250);
     },
     [appendMessage, files]
   );
 
+  // Handle file drop
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       if (chatbotStatus === "thinking") return;
       appendFiles(Array.from(e.dataTransfer.files));
+      setChatbotStatus("idle");
     },
-    [chatbotStatus, appendFiles]
+    [chatbotStatus, appendFiles, setChatbotStatus]
   );
 
+  // Handle Add Image button click
   const onClick = useCallback(() => {
     if (chatbotStatus === "thinking") return;
     const input = document.createElement("input");
@@ -213,82 +212,61 @@ const Dropzone: React.FC<{
     input.multiple = true;
     input.onchange = () => appendFiles(input.files ? Array.from(input.files) : []);
     input.click();
-  }, [chatbotStatus, appendFiles]);
+    setChatbotStatus("idle");
+  }, [chatbotStatus, appendFiles, setChatbotStatus]);
 
+  // Handle drag over
   const onDragOver = (e: React.DragEvent) => {
     if (chatbotStatus === "thinking") return;
     e.preventDefault();
+    setChatbotStatus("drag-n-drop");
   };
 
-  const submitQuestion = async () => {
+  // Submit request to OpenAI
+  const submitRequest = async (text: string) => {
     // Move images in UI first.
-    setStatus("thinking");
-    const message: InputMessage = {
+    setChatbotStatus("thinking");
+    const message: OpenAI.Responses.ResponseInputItem.Message = {
       role: "user",
-      content: [{ type: "input_text", text }],
-      images: files.map((file) => URL.createObjectURL(file)),
+      content: [
+        { type: "input_text", text },
+        ...files.map<OpenAI.Responses.ResponseInputImage>((f) => ({
+          type: "input_image",
+          image_url: f.url,
+          detail: "auto",
+        })),
+      ],
     };
     appendMessage(message);
-    setText("");
-
-    // Upload images to OpenAI.
-    message.content.push(
-      ...(await Promise.all<OpenAI.Responses.ResponseInputImage>(
-        files.map(async (file) => {
-          const openAiFile = await openai.files.create({
-            file,
-            purpose: "user_data",
-          });
-          return {
-            type: "input_image",
-            file_id: openAiFile.id,
-            detail: "auto",
-          };
-        })
-      ))
-    );
     setFiles([]);
-
-    // Call OpenAI API with images (if attached) to get a response
-    try {
-      const response = await openai.responses.create({
-        model: "o3",
-        input: [{ role: message.role, content: message.content }],
-      });
-      appendMessage(response);
-    } catch (error: unknown) {
-      console.error("Error fetching response from OpenAI:", error);
-      appendMessage({ error: `OpenAI Error! ${(error as Error).message || ""}` });
-    }
-    setStatus("idle");
   };
 
   return (
     <menu ref={ref} className="flex items-center gap-3 px-3 py-2" onDrop={onDrop} onDragOver={onDragOver}>
       <div className="flex-1 flex-col rounded-2xl relative shadow-zinc-500 shadow-sm transition bg-popover border text-foreground focus-within:shadow-md focus-within:bg-accent">
         <div className="flex justify-end py-1.5 px-2 gap-2 min-h-10">
-          <textarea
-            className="text-secondary-foreground p-2 outline-none grow resize-none"
-            placeholder="Ask anything..."
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submitQuestion();
-              }
-            }}
-            rows={1}
-            onChange={(e) => setText(e.target.value)}
-            value={text}
-            disabled={chatbotStatus === "thinking"}
-          ></textarea>
-
+          <div
+            className={`absolute inset-0 rounded-2xl flex flex-col items-center justify-center text-center p-4 z-20 pointer-events-none transition-opacity bg-accent ${
+              chatbotStatus === "drag-n-drop" ? "opacity-100 z-10" : "opacity-0 z-0"
+            }`}
+            id="dropzone"
+          >
+            Drop Files Here!
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+            <div />
+          </div>
+          <Textarea submitRequest={submitRequest} />
           {files.map((file) => (
             <div key={file.name} className="relative  z-30">
-              <img
-                src={URL.createObjectURL(file)}
-                alt={file.name}
-                className="rounded-sm border object-contain max-h-16"
-              />
+              <img src={file.url} alt={file.name} className="rounded-sm border object-contain max-h-16" />
               <button
                 className="absolute -top-3 -right-3 bg-red cursor-pointer rounded-full p-1 m-1"
                 onClick={() => setFiles((fs) => fs.filter((f) => f.name !== file.name))}
@@ -317,6 +295,7 @@ const Dropzone: React.FC<{
           <button
             className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-sm text-muted min-h-6 min-w-6 leading-1"
             onClick={() => clearMessages()}
+            //  alt="Clear chat"
           >
             <MoreHorizontal className="h-4 w-4" />
           </button>
@@ -326,12 +305,43 @@ const Dropzone: React.FC<{
         size="icon"
         className="rounded-full h-12 w-12"
         onClick={() => {
-          setStatus(chatbotStatus === "idle" ? "thinking" : "idle");
+          setChatbotStatus(chatbotStatus === "idle" ? "drag-n-drop" : "idle");
           setTimeout(scrollToBottom, 100);
         }}
       >
         <Mic className="h-5 w-5" />
       </Button>
     </menu>
+  );
+};
+
+const Textarea: React.FC<{ submitRequest: (text: string) => void }> = ({ submitRequest }) => {
+  const chatbotStatus = useMessageStore((state) => state.chatbotStatus);
+  const [text, setText] = useState("");
+
+  const onKeyDown = useCallback(
+    async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        submitRequest(text);
+        setText("");
+      }
+    },
+    [text, submitRequest]
+  );
+
+  const onchange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+  }, []);
+  return (
+    <textarea
+      className="text-secondary-foreground p-2 outline-none grow resize-none"
+      placeholder="Ask anything..."
+      onKeyDown={onKeyDown}
+      rows={1}
+      onChange={onchange}
+      value={text}
+      disabled={chatbotStatus === "thinking"}
+    ></textarea>
   );
 };

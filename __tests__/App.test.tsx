@@ -36,23 +36,24 @@ describe("App", () => {
     /* Select image to upload */
     const file = new File(["dummy content"], "test-image.png", { type: "image/png" });
     Object.defineProperty(input, "files", { value: [file] });
-    expect(container.querySelectorAll("#dropzone img")).toHaveLength(0);
+    expect(container.querySelectorAll("menu img")).toHaveLength(0);
     act(() => input!.dispatchEvent(new Event("change", { bubbles: true })));
 
     // Expect the image to be rendered in the document
+    await screen.findByAltText("test-image.png");
     const images = container.querySelectorAll("menu img");
     expect(images).toHaveLength(1);
     const dropzoneImage = images[0] as HTMLImageElement;
-    expect(dropzoneImage.src).toContain("http://localhost:3000/mock-object-url");
+    expect(dropzoneImage.src).toContain(`${import.meta.env.VITE_API_URL}/upload/test-image.png`);
 
     // Click the X to remove the image
     const removeButton = dropzoneImage.nextSibling as HTMLButtonElement;
     act(() => removeButton.click());
-    expect(container.querySelectorAll("#dropzone img")).toHaveLength(0);
+    expect(container.querySelectorAll("menu img")).toHaveLength(0);
   });
 
   it("Ask a question in the textbox", async () => {
-    render(<App />);
+    const { container } = render(<App />);
 
     const textbox = screen.getByPlaceholderText("Ask anything...");
     expect(textbox).toBeInTheDocument();
@@ -70,14 +71,88 @@ describe("App", () => {
       expect(chatbotOutput).not.toContainElement(textbox);
     });
 
-    // Commented out because using openAI client-side is causing weirdness that makes it hard to test.
-    //
-    // // hit enter to submit
-    // await act(async () => {
-    //   textbox.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, shiftKey: false }));
-    //   await vi.waitFor(() => container.querySelectorAll("output > div").length > 0);
-    // });
-    // const b = await screen.findByText("What is in the image?");
-    // expect(chatbotOutput).toContain("What is in the image?");
+    // hit enter to submit
+    await act(async () => {
+      textbox.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, shiftKey: false }));
+      await vi.waitFor(() => container.querySelectorAll("output > div").length > 0);
+    });
+    const movedMessage = await screen.findByText("What is in the image?");
+    expect(chatbotOutput).toContain(movedMessage);
+  });
+
+  it("Ask a question with images", async () => {
+    const { container } = render(<App />);
+
+    const textbox = screen.getByPlaceholderText("Ask anything...");
+    expect(textbox).toBeInTheDocument();
+
+    // Simulate user typing a question
+    act(() => {
+      textbox.textContent = "What is in the image?";
+      textbox.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(await screen.findAllByText("What is in the image?")).toHaveLength(2);
+    const chatbotOutput = screen.getByRole("status", { name: "Chatbot conversation" });
+    expect(chatbotOutput).not.toContainElement(textbox);
+
+    // Simulate clicking the add image button
+    let input: HTMLInputElement | null = null;
+    const createElementSpy = vi.spyOn(document, "createElement").mockImplementationOnce((tagName: string) => {
+      if (tagName === "input") {
+        input = document.createElement("input");
+        input.type = "file";
+        return input;
+      }
+      return document.createElement(tagName);
+    });
+    const [addImageButton] = container.querySelectorAll("menu button") as NodeListOf<HTMLButtonElement>;
+    addImageButton.click();
+    expect(createElementSpy).toBeCalled();
+    expect(input).not.toBeNull();
+
+    /* Select image to upload */
+    const file = new File(["dummy content"], "test-image.png", { type: "image/png" });
+    Object.defineProperty(input, "files", { value: [file] });
+    expect(container.querySelectorAll("menu img")).toHaveLength(0);
+    act(() => input!.dispatchEvent(new Event("change", { bubbles: true })));
+
+    // Expect the image to be rendered in the document
+    await screen.findByAltText("test-image.png");
+    const images = container.querySelectorAll("menu img");
+    expect(images).toHaveLength(1);
+    const dropzoneImage = images[0] as HTMLImageElement;
+    expect(dropzoneImage.src).toContain(`${import.meta.env.VITE_API_URL}/upload/test-image.png`);
+
+    // hit enter to submit
+    await act(async () => {
+      textbox.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, shiftKey: false }));
+    });
+    await vi.waitFor(() => container.querySelectorAll("output > div").length > 0);
+
+    await vi.waitFor(() => container.querySelectorAll("output img"));
+    const outputImage = await screen.findAllByRole("img", { name: /Chatted image/i });
+    expect(chatbotOutput).toContain(outputImage[0]);
+  });
+
+  it.skip("Drag and drop an image", async () => {
+    render(<App />);
+
+    // Simulate dragging and dropping a file onto the dropzone
+    const dropzone = screen.getByRole("list");
+    expect(dropzone).toBeInTheDocument();
+
+    const file = new File(["dummy content"], "test-image.png", { type: "image/png" });
+    act(() => {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      dropzone.dispatchEvent(new DragEvent("dragover", { dataTransfer, bubbles: true }));
+      dropzone.dispatchEvent(new DragEvent("drop", { dataTransfer, bubbles: true }));
+    });
+
+    // Expect the image to be rendered in the document
+    const images = await screen.findAllByAltText("test-image.png");
+    expect(images).toHaveLength(1);
+    const dropzoneImage = images[0] as HTMLImageElement;
+    expect(dropzoneImage.src).toContain(`${import.meta.env.VITE_API_URL}/upload/test-image.png`);
   });
 });

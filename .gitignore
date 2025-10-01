@@ -23,6 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
+.env
 .env.local
 coverage/
 .terraform/
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/terraform.tfvars

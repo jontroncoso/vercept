@@ -6,11 +6,29 @@
 @keyframes swing {
   0% {
     bottom: 0%;
-    opacity: 0[];
+    opacity: 0;
   }
   100% {
     bottom: 100%;
     opacity: 1;
+  }
+}
+
+@keyframes blackhole {
+  from {
+    left: var(--left-start);
+    top: var(--top-start);
+    opacity: 0;
+    transform: scale(1);
+  }
+  25% {
+    opacity: 1;
+  }
+  to {
+    left: 50%;
+    top: 50%;
+    opacity: 0;
+    transform: scale(0);
   }
 }
 
@@ -208,7 +226,7 @@ button:focus-visible {
 #thinking-indicator div {
   /* @apply bg-primary h-4 w-4; */
 
-  background-color: #fff;
+  background-color: var(--color-primary);
   height: 1rem;
   width: 1rem;
   transition: top 0.5s ease-in-out;
@@ -216,4 +234,109 @@ button:focus-visible {
   position: absolute;
   opacity: 0;
   border-radius: 9999px;
+}
+
+#dropzone div {
+  height: 1rem;
+  width: 1rem;
+  transition: top 0.5s ease-in-out;
+  animation: swing 0.75s infinite alternate ease-in-out;
+  position: absolute;
+  opacity: 0;
+  border-radius: 9999px;
+  background-color: var(--color-foreground);
+}
+
+/* Base styles for the divs */
+/* #dropzone {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  background-color: #4a90e2;
+  border-radius: 8px;
+  animation-timing-function: cubic-bezier(0.68, -0.55, 0.27, 1.55);
+  animation: suck-in 2s infinite;
+  opacity: 1;
+} */
+#dropzone {
+  cursor: progress;
+}
+
+/* Specific positions for each div */
+#dropzone > div {
+  position: absolute;
+  --left-start: 0%;
+  --top-start: 0%;
+  animation: blackhole infinite;
+}
+#dropzone > div:nth-child(1) {
+  --left-start: 100%;
+  --top-start: 100%;
+  animation-duration: 5s;
+}
+#dropzone > div:nth-child(2) {
+  --left-start: 0%;
+  --top-start: 100%;
+  animation-delay: 0.2s;
+  animation-duration: 4s;
+}
+#dropzone > div:nth-child(3) {
+  --left-start: 100%;
+  --top-start: 0%;
+  animation-delay: 0.4s;
+  animation-duration: 1.5s;
+}
+#dropzone > div:nth-child(4) {
+  --left-start: 0%;
+  --top-start: 0%;
+  animation-delay: 0.6s;
+  animation-duration: 1.5s;
+}
+#dropzone > div:nth-child(5) {
+  --left-start: 0%;
+  --top-start: 50%;
+  animation-delay: 0.8s;
+  animation-duration: 2.5s;
+}
+#dropzone > div:nth-child(6) {
+  --left-start: 50%;
+  --top-start: 100%;
+  animation-duration: 5s;
+  animation-delay: 0.1s;
+}
+#dropzone > div:nth-child(7) {
+  --left-start: 75%;
+  --top-start: 100%;
+  animation-delay: 0.3s;
+  animation-duration: 2s;
+}
+#dropzone > div:nth-child(8) {
+  --left-start: 25%;
+  --top-start: 0%;
+  animation-delay: 0.5s;
+  animation-duration: 1.5s;
+}
+#dropzone > div:nth-child(9) {
+  --left-start: 0%;
+  --top-start: 75%;
+  animation-delay: 0.7s;
+  animation-duration: 1.5s;
+}
+#dropzone > div:nth-child(10) {
+  --left-start: 0%;
+  --top-start: 25%;
+  animation-delay: 0.9s;
+  animation-duration: 2s;
+}
+
+/* The keyframes for the "sucking" effect */
+@keyframes suck-in {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(50vw - 50%), calc(50vh - 50%)) scale(0);
+    opacity: 0;
+  }
 }
