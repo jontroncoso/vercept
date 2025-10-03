@@ -59,12 +59,16 @@ export const useMessageStore = create<MessageStore>()(
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ input: [input] }),
             })
-              .then((res) => res.json())
-              .then((data) => {
+              .then(async (res) => {
+                const data = await res.json();
+                if (!res.ok) {
+                  throw new Error(data.message || `API error: ${res.status} ${res.statusText}`);
+                }
+                console.log("Response data:", data);
                 set({ messages: [...get().messages, data].filter(dedupeFilter), chatbotStatus: "idle" });
               })
               .catch((error) => {
-                console.error("Error:", error);
+                console.error("Error:", error, typeof error);
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 set({
                   messages: [...get().messages, { error: errorMessage }].filter(dedupeFilter),

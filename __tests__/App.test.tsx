@@ -44,7 +44,7 @@ describe("App", () => {
     const images = container.querySelectorAll("menu img");
     expect(images).toHaveLength(1);
     const dropzoneImage = images[0] as HTMLImageElement;
-    expect(dropzoneImage.src).toContain(`${import.meta.env.VITE_API_URL}/upload/test-image.png`);
+    expect(dropzoneImage.src).toContain(`http://localhost:3000/mock-object-url`);
 
     // Click the X to remove the image
     const removeButton = dropzoneImage.nextSibling as HTMLButtonElement;
@@ -121,7 +121,7 @@ describe("App", () => {
     const images = container.querySelectorAll("menu img");
     expect(images).toHaveLength(1);
     const dropzoneImage = images[0] as HTMLImageElement;
-    expect(dropzoneImage.src).toContain(`${import.meta.env.VITE_API_URL}/upload/test-image.png`);
+    expect(dropzoneImage.src).toContain(`http://localhost:3000/mock-object-url`);
 
     // hit enter to submit
     await act(async () => {

@@ -17,6 +17,7 @@ import type OpenAI from "openai";
 import {
   dedupeFilter,
   extractTextFromMessage,
+  messageIsError,
   messageIsInput,
   messageIsResponse,
   useMessageStore,
@@ -95,7 +96,7 @@ const ChatWindow: React.FC<{
               className={`rounded-2xl text-secondary-foreground px-5 py-3 shadow-primary/50 shadow-md text-sm mb-8 ${
                 messageIsInput(message)
                   ? "bg-chart-1 text-white rounded-tr-none"
-                  : "bg-muted text-primary rounded-tl-none"
+                  : `${messageIsError(message) ? "bg-chart-5 text-white" : "bg-muted text-primary"} rounded-tl-none`
               }`}
             >
               {extractTextFromMessage(message)}

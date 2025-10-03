@@ -24,7 +24,6 @@ export const chat: HandlerType = async (event) => {
       body: JSON.stringify(response),
     };
   } catch (error) {
-    console.error("Error:", { body: JSON.stringify(body), error });
     return {
       statusCode: 500,
       headers: {
