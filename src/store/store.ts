@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 import type OpenAI from "openai";
 import type { ReactNode } from "react";
 
@@ -18,9 +18,7 @@ interface MessageStore {
   setChatbotStatus: (status: ChatbotStatus) => void;
 }
 
-export const dedupeFilter = <T>(f: T, i: number, fs: T[]): boolean => {
-  return fs.indexOf(f) === i;
-};
+export const dedupeFilter = <T>(f: T, i: number, fs: T[]): boolean => fs.indexOf(f) === i;
 export const useMessageStore = create<MessageStore>()(
   persist(
     (set, get) => {
@@ -81,8 +79,7 @@ export const useMessageStore = create<MessageStore>()(
       };
     },
     {
-      name: "message-storage", // name of the item in the storage (must be unique)
-      storage: createJSONStorage(() => sessionStorage),
+      name: "message-storage",
     }
   )
 );

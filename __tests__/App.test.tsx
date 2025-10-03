@@ -133,26 +133,4 @@ describe("App", () => {
     const outputImage = await screen.findAllByRole("img", { name: /Chatted/i });
     expect(chatbotOutput).toContain(outputImage[0]);
   });
-
-  it.skip("Drag and drop an image", async () => {
-    render(<App />);
-
-    // Simulate dragging and dropping a file onto the dropzone
-    const dropzone = screen.getByRole("list");
-    expect(dropzone).toBeInTheDocument();
-
-    const file = new File(["dummy content"], "test-image.png", { type: "image/png" });
-    act(() => {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      dropzone.dispatchEvent(new DragEvent("dragover", { dataTransfer, bubbles: true }));
-      dropzone.dispatchEvent(new DragEvent("drop", { dataTransfer, bubbles: true }));
-    });
-
-    // Expect the image to be rendered in the document
-    const images = await screen.findAllByAltText("test-image.png");
-    expect(images).toHaveLength(1);
-    const dropzoneImage = images[0] as HTMLImageElement;
-    expect(dropzoneImage.src).toContain(`${import.meta.env.VITE_API_URL}/upload/test-image.png`);
-  });
 });

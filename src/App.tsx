@@ -34,18 +34,22 @@ export default function App() {
   const showSlowWarning = useMessageStore((state) => state.showSlowWarning);
   const scrollDivRef = useRef<HTMLOutputElement>(null);
 
-  const scrollToBottom = useCallback(() => {
-    if (scrollDivRef.current?.scrollTo) {
-      scrollDivRef.current.scrollTo({
-        top: scrollDivRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, [scrollDivRef]);
+  // Subscribe to message store changes to auto-scroll to bottom
+  useMessageStore.subscribe(async () =>
+    setTimeout(() => {
+      if (scrollDivRef.current?.scrollTo) {
+        scrollDivRef.current.scrollTo({
+          top: scrollDivRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }, 100)
+  );
+
   return (
     <div className="h-dvh w-screen text-foreground flex flex-col">
       <ChatWindow showSlowWarning={showSlowWarning} scrollDivRef={scrollDivRef} />
-      <Dropzone scrollToBottom={scrollToBottom} />
+      <Dropzone />
     </div>
   );
 }
@@ -108,7 +112,7 @@ const ChatWindow: React.FC<{
           </div>
         );
       })}
-      {["thinking", "uploading"].includes(chatbotStatus) && (
+      {chatbotStatus === "thinking" && (
         <div className=" relative w-1/3" id="thinking-indicator">
           <p
             className={`w-full text-sm transition-opacity text-primary ${
@@ -148,48 +152,45 @@ const ChatWindow: React.FC<{
 /**
  * Dropzone component for file uploads and text input
  */
-const Dropzone: React.FC<{
-  scrollToBottom: () => void;
-}> = ({ scrollToBottom }) => {
-  const [files, setFiles] = useState<{ type: string; name: string; url: string }[]>([]);
+const Dropzone: React.FC = () => {
+  const [files, setFiles] = useState<File[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const appendMessage = useMessageStore((state) => state.appendMessage);
   const clearMessages = useMessageStore((state) => state.clearMessages);
   const setChatbotStatus = useMessageStore((state) => state.setChatbotStatus);
   const chatbotStatus = useMessageStore((state) => state.chatbotStatus);
 
-  // Subscribe to message store changes to auto-scroll to bottom
-  useMessageStore.subscribe(async () => setTimeout(scrollToBottom, 100));
-
   // Append files, limiting to 4
   const appendFiles = useCallback(
     async (rawFiles: File[]) => {
+      if (rawFiles.length + files.length > 4) {
+        appendMessage({ error: "You can only upload up to 4 images at a time, for some reason." });
+      }
+
+      const newFiles = [...files, ...rawFiles].filter(dedupeFilter);
+      newFiles.splice(0, newFiles.length - 4);
+      setFiles(newFiles);
+      setChatbotStatus("idle");
+
       const response = await fetch(`/api/upload`, {
         method: "POST",
         body: JSON.stringify({ files: rawFiles.map((f) => ({ name: f.name, type: f.type })) }),
         headers: { "Content-Type": "application/json" },
       });
       const { presignedUrls } = (await response.json()) as { presignedUrls: string[] };
-      const processedFiles = await Promise.all(
+      await Promise.all(
         rawFiles.map(async (f, i) => {
           await fetch(presignedUrls[i], {
             method: "PUT",
             headers: { "Content-Type": f.type },
             body: f,
           });
-          return { type: f.type, name: f.name, url: `${import.meta.env.VITE_API_URL}/upload/${f.name}` };
+
+          return f;
         })
       );
-      const newFiles = [...files, ...processedFiles].filter(dedupeFilter);
-
-      if (newFiles.length > 4) {
-        newFiles.splice(0, newFiles.length - 4);
-        appendMessage({ error: "You can only upload up to 4 images at a time, for some reason." });
-      }
-
-      setTimeout(() => setFiles(newFiles), 250);
     },
-    [appendMessage, files]
+    [appendMessage, files, setChatbotStatus]
   );
 
   // Handle file drop
@@ -198,9 +199,8 @@ const Dropzone: React.FC<{
       e.preventDefault();
       if (chatbotStatus === "thinking") return;
       appendFiles(Array.from(e.dataTransfer.files));
-      setChatbotStatus("idle");
     },
-    [chatbotStatus, appendFiles, setChatbotStatus]
+    [chatbotStatus, appendFiles]
   );
 
   // Handle Add Image button click
@@ -212,8 +212,7 @@ const Dropzone: React.FC<{
     input.multiple = true;
     input.onchange = () => appendFiles(input.files ? Array.from(input.files) : []);
     input.click();
-    setChatbotStatus("idle");
-  }, [chatbotStatus, appendFiles, setChatbotStatus]);
+  }, [chatbotStatus, appendFiles]);
 
   // Handle drag over
   const onDragOver = (e: React.DragEvent) => {
@@ -237,7 +236,7 @@ const Dropzone: React.FC<{
         { type: "input_text", text },
         ...files.map<OpenAI.Responses.ResponseInputImage>((f) => ({
           type: "input_image",
-          image_url: f.url,
+          image_url: `${import.meta.env.VITE_API_URL}/upload/${f.name}`,
           detail: "auto",
         })),
       ],
@@ -277,9 +276,14 @@ const Dropzone: React.FC<{
         </div>
         <div className="flex justify-end py-1.5 px-2 gap-2 min-h-10">
           <Textarea submitRequest={submitRequest} />
+
           {files.map((file) => (
             <div key={file.name} className="relative  z-30">
-              <img src={file.url} alt={file.name} className="rounded-sm border object-contain max-h-16" />
+              <img
+                src={URL.createObjectURL(file)}
+                alt={file.name}
+                className="rounded-sm border object-contain max-h-16"
+              />
               <button
                 className="absolute -top-3 -right-3 bg-red cursor-pointer rounded-full p-1 m-1"
                 onClick={() => removeFile(file)}
@@ -314,14 +318,7 @@ const Dropzone: React.FC<{
           </button>
         </div>
       </div>
-      <Button
-        size="icon"
-        className="rounded-full h-12 w-12"
-        onClick={() => {
-          setChatbotStatus(chatbotStatus === "idle" ? "drag-n-drop" : "idle");
-          setTimeout(scrollToBottom, 100);
-        }}
-      >
+      <Button size="icon" className="rounded-full h-12 w-12">
         <Mic className="h-5 w-5" />
       </Button>
     </menu>

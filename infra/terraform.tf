@@ -246,18 +246,6 @@ resource "aws_s3_bucket_cors_configuration" "site" {
   }
 }
 
-resource "aws_s3_bucket_ownership_controls" "site" {
-  bucket = data.aws_s3_bucket.site.id
-  rule { object_ownership = "BucketOwnerEnforced" }
-}
-
-resource "aws_s3_bucket_public_access_block" "site" {
-  bucket                  = data.aws_s3_bucket.site.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
 
 # Minimal index.html (served at https://<subdomain>/ thanks to origin_path below)
 resource "aws_s3_object" "provision_source_files" {
@@ -414,8 +402,6 @@ resource "aws_cloudfront_distribution" "dist" {
   }
 
   depends_on = [
-    aws_s3_bucket_ownership_controls.site,
-    aws_s3_bucket_public_access_block.site,
     aws_s3_object.provision_source_files,
     aws_acm_certificate_validation.cf_cert_validation
   ]
